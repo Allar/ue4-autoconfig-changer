@@ -8,4 +8,4 @@ Automation tool that helps with making changes to UE4 project configs
 
 # Usage
 
-ue4-autoconfig-changer -d ProjectDir -a SteamAppID
+`ue4-autoconfig-changer -d ProjectDir -a SteamAppID`
