@@ -3,6 +3,9 @@
   "version": "1.0.0",
   "description": "Helper to change some UE4 project configs automatically",
   "main": "index.js",
+  "bin": {
+    "ue4-autoconfig-changer": "lib/autoconfigchanger.js"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
