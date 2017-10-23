@@ -9,9 +9,10 @@ var SuccessCode = 0;
 var FailureCode = 2;
 
 options = cli.parse({
-  sourcefolder: [ 'd', 'Path to project folder', 'path'],
-  bEnableSteam: [ 's', 'Whether to enable steam (does not disable if already enabled)', 'bool', false],
-  appid: [ 'a', 'Steam App ID', 'int' ]
+  sourcefolder: ['d', 'Path to project folder', 'path'],
+  bDisableVR: ['v', 'Whether to disable VR', 'bool', false],
+  bEnableSteam: ['s', 'Whether to enable steam (does not disable if already enabled)', 'bool', false],
+  appid: ['a', 'Steam App ID', 'int']
 });
 
 if (options.sourcefolder == null) {
@@ -26,35 +27,56 @@ var ProjectName = path.basename(options.sourcefolder);
 var ProjectFilePath = path.join(options.sourcefolder, ProjectName + '.uproject');
 var ProjectFileExists = fs.pathExistsSync(ProjectFilePath);
 
-if (options.bEnableSteam) {
+
+/**
+ * @param {object} ProjectObject Project object loaded from .uproject
+ * @param {string} PluginName Name of plugin
+ * @param {bool} PluginEnabled Whether plugin should be enabled
+ * @returns modified project object
+ */
+function SetPluginState(ProjectObject, PluginName, PluginEnabled) {
+  if (!ProjectObject.hasOwnProperty('Plugins')) { // Has no plugin configuration
+    ProjectObject["Plugins"] = [{ "Name": PluginName, "Enabled": PluginEnabled }];
+    console.log(`Added Plugins field and ${PluginEnabled ? 'enabled' : 'disabled'} ${PluginName}.`);
+  } else {
+    var PluginIndex = ProjectObject.Plugins.findIndex((element) => { return element["Name"] == PluginName; });
+    if (PluginIndex != -1) {
+      ProjectObject.Plugins[PluginIndex]["Enabled"] = PluginEnabled;
+      console.log(`Forced ${PluginName} to be ${PluginEnabled ? 'enabled' : 'disabled'}.`);
+    } else {
+      ProjectObject.Plugins.push({ "Name": PluginName, "Enabled": PluginEnabled });
+      console.log(`Added ${PluginName} as ${PluginEnabled ? 'enabled' : 'disabled'} to plugins list.`);
+    }
+  }
+
+  return ProjectObject;
+}
+
+
+if (options.bEnableSteam || options.bDisableVR) {
   if (!ProjectFileExists) {
-    console.error("Attempting to enable Steam subsystem but could not find Project's .uproject file!")
+    console.error("Attempting to make .uproject file changes but could not find .uproject file!")
     process.exit(FailureCode);
     return;
   }
 
-  winattr.setSync(ProjectFilePath, {readonly: false});
+  winattr.setSync(ProjectFilePath, { readonly: false });
 
-  let rawdata = fs.readFileSync(ProjectFilePath);  
-  let ProjectJSON = JSON.parse(rawdata);  
+  let rawdata = fs.readFileSync(ProjectFilePath);
+  let ProjectJSON = JSON.parse(rawdata);
 
   console.log(JSON.stringify(ProjectJSON));
 
-  if (!ProjectJSON.hasOwnProperty('Plugins')) { // Has no plugin configuration, just add Steam enabled
-    var Steam = { "Name": "OnlineSubsystemSteam", "Enabled": true}
-    ProjectJSON["Plugins"] = [Steam];
-    console.log("Added Plugins field and enabled Steam.");
-  } else {
-    var SteamIndex = ProjectJSON.Plugins.findIndex( (element) => { return element["Name"] == "OnlineSubsystemSteam"; } );
-    if (SteamIndex != -1) {
-      ProjectJSON.Plugins[SteamIndex]["Enabled"] = true;
-      console.log("Forced OnlineSubsystemSteam to be enabled.");
-    } else {
-      ProjectJSON.Plugins.push({ "Name": "OnlineSubsystemSteam", "Enabled": true});
-      console.log("Added OnlineSubsystemSteam to plugins list.");
-    }
+  if (options.bEnableSteam) {
+    ProjectJSON = SetPluginState(ProjectJSON, 'OnlineSubsystemSteam', true);
   }
-  fs.writeFileSync(ProjectFilePath, JSON.stringify(ProjectJSON, null, '\t'), {flag: 'w'});
+
+  if (options.bDisableVR) {
+    ProjectJSON = SetPluginState(ProjectJSON, 'SteamVR', false);
+    ProjectJSON = SetPluginState(ProjectJSON, 'OculusVR', false);
+  }
+
+  fs.writeFileSync(ProjectFilePath, JSON.stringify(ProjectJSON, null, '\t'), { flag: 'w' });
 }
 
 var DefaultEngineConfigPath = path.join(options.sourcefolder, 'Config', 'DefaultEngine.ini');
@@ -67,7 +89,7 @@ if (options.appid != null) {
     return;
   }
 
-  winattr.setSync(DefaultEngineConfigPath, {readonly: false});
+  winattr.setSync(DefaultEngineConfigPath, { readonly: false });
 
   replace({
     regex: /(SteamDevAppId=)(\d+)\b/g,
