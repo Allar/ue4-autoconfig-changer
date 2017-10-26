@@ -19,3 +19,5 @@ Automation tool that helps with making changes to UE4 project configs
 `-s true` is optional. If `-s true`, project will have plugin `OnlineSubsystemSteam` *enabled*. If false (default), no changes are made.
 
 `-v true` is optional. If `-v true`, project will have plugins `SteamVR` and `OculusVR` *disabled*. If false (default), no changes are made.
+
+`-l true` is optional. If `-l true`, project will remove `Linter` from the project file definition (effectively disabling it). If false (default), no changes are made.

@@ -12,6 +12,7 @@ options = cli.parse({
   sourcefolder: ['d', 'Path to project folder', 'path'],
   bDisableVR: ['v', 'Whether to disable VR', 'bool', false],
   bEnableSteam: ['s', 'Whether to enable steam (does not disable if already enabled)', 'bool', false],
+  bDisableLinter: ['l', 'Whether to disable Linter (does not enable if already disabled)', 'bool', false],
   appid: ['a', 'Steam App ID', 'int']
 });
 
@@ -34,16 +35,28 @@ var ProjectFileExists = fs.pathExistsSync(ProjectFilePath);
  * @param {bool} PluginEnabled Whether plugin should be enabled
  * @returns modified project object
  */
-function SetPluginState(ProjectObject, PluginName, PluginEnabled) {
+function SetPluginState(ProjectObject, PluginName, PluginEnabled, bRemoveFromList = false) {
   if (!ProjectObject.hasOwnProperty('Plugins')) { // Has no plugin configuration
+    if (bRemoveFromList) { // Want to simply remove from list
+      return ProjectObject; // do nothing
+    }
     ProjectObject["Plugins"] = [{ "Name": PluginName, "Enabled": PluginEnabled }];
     console.log(`Added Plugins field and ${PluginEnabled ? 'enabled' : 'disabled'} ${PluginName}.`);
   } else {
     var PluginIndex = ProjectObject.Plugins.findIndex((element) => { return element["Name"] == PluginName; });
     if (PluginIndex != -1) {
+      if (bRemoveFromList) { // Want to simply remove from list
+        ProjectObject.Plugins.splice(PluginIndex, 1);
+        console.log(`Removed ${PluginName} from plugin list.`);
+        return ProjectObject;
+      }
       ProjectObject.Plugins[PluginIndex]["Enabled"] = PluginEnabled;
       console.log(`Forced ${PluginName} to be ${PluginEnabled ? 'enabled' : 'disabled'}.`);
     } else {
+      if (bRemoveFromList) {
+        console.log(`Could not find ${PluginName} so there was nothing to remove.`);
+        return ProjectObject;
+      }
       ProjectObject.Plugins.push({ "Name": PluginName, "Enabled": PluginEnabled });
       console.log(`Added ${PluginName} as ${PluginEnabled ? 'enabled' : 'disabled'} to plugins list.`);
     }
@@ -53,7 +66,7 @@ function SetPluginState(ProjectObject, PluginName, PluginEnabled) {
 }
 
 
-if (options.bEnableSteam || options.bDisableVR) {
+if (options.bEnableSteam || options.bDisableVR || options.bDisableLinter) {
   if (!ProjectFileExists) {
     console.error("Attempting to make .uproject file changes but could not find .uproject file!")
     process.exit(FailureCode);
@@ -74,6 +87,10 @@ if (options.bEnableSteam || options.bDisableVR) {
   if (options.bDisableVR) {
     ProjectJSON = SetPluginState(ProjectJSON, 'SteamVR', false);
     ProjectJSON = SetPluginState(ProjectJSON, 'OculusVR', false);
+  }
+
+  if (options.bDisableLinter) {
+    ProjectJSON = SetPluginState(ProjectJSON, 'Linter', false, true);
   }
 
   fs.writeFileSync(ProjectFilePath, JSON.stringify(ProjectJSON, null, '\t'), { flag: 'w' });
